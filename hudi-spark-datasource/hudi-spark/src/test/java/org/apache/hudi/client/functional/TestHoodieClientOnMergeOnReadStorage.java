@@ -87,7 +87,7 @@ public class TestHoodieClientOnMergeOnReadStorage extends HoodieClientTestBase {
     // Insert
     String commitTime = WriteClientTestUtils.createNewInstantTime();
     insertBatch(config, client, commitTime, "000", 100, SparkRDDWriteClient::insert,
-        false, false, 100, 100, 1, Option.empty(), INSTANT_GENERATOR);
+        false, false, 100, 100, 1, Option.empty(), INSTANT_GENERATOR,false).getKey();;
 
     // Update
     String commitTimeBetweenPrevAndNew = commitTime;

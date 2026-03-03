@@ -154,7 +154,7 @@ public class TestSparkRDDMetadataWriteClient extends HoodieClientTestBase {
       final int numRecords = 100;
       String newCommitTime = WriteClientTestUtils.createNewInstantTime();
       insertBatch(hoodieWriteConfig, client, newCommitTime, HoodieTimeline.INIT_INSTANT_TS, numRecords, SparkRDDWriteClient::insert,
-          false, true, numRecords, numRecords, 1, Option.empty(), INSTANT_GENERATOR);
+          false, true, numRecords, numRecords, 1, Option.empty(), INSTANT_GENERATOR, false).getKey();
     }
   }
 

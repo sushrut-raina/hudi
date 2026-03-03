@@ -1295,8 +1295,8 @@ public class TestHoodieClientMultiWriter extends HoodieClientTestBase {
   private void createCommitWithInsertsForPartition(HoodieWriteConfig cfg, SparkRDDWriteClient client,
                                                    String prevCommitTime, String newCommitTime, int numRecords,
                                                    String partition) throws Exception {
-    JavaRDD<WriteStatus> result = insertBatch(cfg, client, newCommitTime, prevCommitTime, numRecords, SparkRDDWriteClient::insert,
-        false, false, numRecords, numRecords, 1, Option.of(partition), INSTANT_GENERATOR);
+    insertBatch(cfg, client, newCommitTime, prevCommitTime, numRecords, SparkRDDWriteClient::insert,
+        false, false, numRecords, numRecords, 1, Option.of(partition), INSTANT_GENERATOR,false).getKey();
   }
 
   private JavaRDD<WriteStatus> createCommitWithInserts(HoodieWriteConfig cfg, SparkRDDWriteClient client,
