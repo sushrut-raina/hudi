@@ -304,12 +304,19 @@ public abstract class HoodieWriterClientTestHarness extends HoodieCommonTestHarn
   protected abstract List<WriteStatus> writeAndVerifyBatch(BaseHoodieWriteClient client, List<HoodieRecord> inserts, String commitTime, boolean populateMetaFields, boolean autoCommitOff)
       throws IOException;
 
+
   protected Object castInsertFirstBatch(HoodieWriteConfig writeConfig, BaseHoodieWriteClient client, String newCommitTime,
                                         String initCommitTime, int numRecordsInThisCommit,
                                         Function3<Object, BaseHoodieWriteClient, Object, String> writeFn, boolean isPreppedAPI,
                                         boolean assertForCommit, int expRecordsInThisCommit, InstantGenerator instantGenerator) throws Exception {
     return castInsertFirstBatch(writeConfig, client, newCommitTime, initCommitTime, numRecordsInThisCommit, writeFn,
         isPreppedAPI, assertForCommit, expRecordsInThisCommit, true, instantGenerator);
+  }
+
+  protected Object castInsertBatch(HoodieWriteConfig config, BaseHoodieWriteClient client, String newCommitTime, int numRecordsInThisCommit,
+                                   int numSlices, int expectedStatusSize, Function3<Object, BaseHoodieWriteClient, Object, String> writeFn, boolean skipCommit) throws Exception {
+
+    return null;
   }
 
   protected Object castInsertFirstBatch(HoodieWriteConfig writeConfig, BaseHoodieWriteClient client, String newCommitTime,

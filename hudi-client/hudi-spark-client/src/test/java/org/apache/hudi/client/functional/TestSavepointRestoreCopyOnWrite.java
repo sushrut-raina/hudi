@@ -60,7 +60,6 @@ public class TestSavepointRestoreCopyOnWrite extends HoodieClientTestBase {
     HoodieWriteConfig hoodieWriteConfig = getConfigBuilder(HoodieFailedWritesCleaningPolicy.LAZY)
         .withRollbackUsingMarkers(true)
         .build();
-
     try (SparkRDDWriteClient client = getHoodieWriteClient(hoodieWriteConfig)) {
       String savepointCommit = null;
       String prevInstant = HoodieTimeline.INIT_INSTANT_TS;
@@ -69,7 +68,7 @@ public class TestSavepointRestoreCopyOnWrite extends HoodieClientTestBase {
         String newCommitTime = WriteClientTestUtils.createNewInstantTime();
         // Write 4 inserts with the 2nd commit been rolled back
         insertBatch(hoodieWriteConfig, client, newCommitTime, prevInstant, numRecords, SparkRDDWriteClient::insert,
-            false, true, numRecords, numRecords * i, 1, Option.empty(), INSTANT_GENERATOR, false).getKey();
+            false, true, numRecords, numRecords * i, 1, Option.empty(), INSTANT_GENERATOR);
         prevInstant = newCommitTime;
         if (i == 2) {
           // trigger savepoint
@@ -101,7 +100,7 @@ public class TestSavepointRestoreCopyOnWrite extends HoodieClientTestBase {
         String newCommitTime = WriteClientTestUtils.createNewInstantTime();
         // Write 4 inserts with the 2nd commit been rolled back
         insertBatch(hoodieWriteConfig, client, newCommitTime, prevInstant, numRecords, SparkRDDWriteClient::insert,
-            false, true, numRecords, numRecords * i, 1, Option.empty(), INSTANT_GENERATOR, false).getKey();
+            false, true, numRecords, numRecords * i, 1, Option.empty(), INSTANT_GENERATOR);
         prevInstant = newCommitTime;
         if (i == 2) {
           // trigger savepoint
@@ -144,7 +143,7 @@ public class TestSavepointRestoreCopyOnWrite extends HoodieClientTestBase {
         String newCommitTime = WriteClientTestUtils.createNewInstantTime();
         // Write 4 inserts with the 2nd commit been rolled back
         insertBatch(hoodieWriteConfig, client, newCommitTime, prevInstant, numRecords, SparkRDDWriteClient::insert,
-            false, true, numRecords, numRecords * i, 1, Option.empty(), INSTANT_GENERATOR, false).getKey();
+            false, true, numRecords, numRecords * i, 1, Option.empty(), INSTANT_GENERATOR);
         prevInstant = newCommitTime;
         if (i == 2) {
           // trigger savepoint
@@ -187,7 +186,7 @@ public class TestSavepointRestoreCopyOnWrite extends HoodieClientTestBase {
         String newCommitTime = WriteClientTestUtils.createNewInstantTime();
         // Write 4 inserts with the 2nd commit been rolled back
         insertBatch(hoodieWriteConfig, client, newCommitTime, prevInstant, numRecords, SparkRDDWriteClient::insert,
-            false, true, numRecords, numRecords * i, 1, Option.empty(), INSTANT_GENERATOR,false).getKey();;
+            false, true, numRecords, numRecords * i, 1, Option.empty(), INSTANT_GENERATOR);
         prevInstant = newCommitTime;
         if (i == 2) {
           // trigger savepoint
@@ -212,7 +211,7 @@ public class TestSavepointRestoreCopyOnWrite extends HoodieClientTestBase {
       // write another batch
       insertBatch(hoodieWriteConfig, client, WriteClientTestUtils.createNewInstantTime(),
           rollbackInstant.get(), numRecords, SparkRDDWriteClient::insert,
-          false, true, numRecords, numRecords * 3, 1, Option.empty(), INSTANT_GENERATOR,false).getKey();
+          false, true, numRecords, numRecords * 3, 1, Option.empty(), INSTANT_GENERATOR);
       // restore
       client.restoreToSavepoint(Objects.requireNonNull(savepointCommit, "restore commit should not be null"));
       assertRowNumberEqualsTo(20);
