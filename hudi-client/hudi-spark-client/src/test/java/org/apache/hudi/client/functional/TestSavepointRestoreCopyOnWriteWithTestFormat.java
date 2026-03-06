@@ -78,7 +78,7 @@ public class TestSavepointRestoreCopyOnWriteWithTestFormat extends HoodieClientT
         String newCommitTime = WriteClientTestUtils.createNewInstantTime();
         commitTimestamps.add(newCommitTime);
         insertBatch(hoodieWriteConfig, client, newCommitTime, prevInstant, numRecords, SparkRDDWriteClient::insert,
-            false, true, numRecords, numRecords * i, 1, Option.empty(), INSTANT_GENERATOR,false).getKey();
+            false, true, numRecords, numRecords * i, 1, Option.empty(), INSTANT_GENERATOR,1).getKey();
         prevInstant = newCommitTime;
         if (i == 2) {
           // trigger savepoint
@@ -91,7 +91,7 @@ public class TestSavepointRestoreCopyOnWriteWithTestFormat extends HoodieClientT
         String newCommitTime = WriteClientTestUtils.createNewInstantTime();
         commitTimestamps.add(newCommitTime);
         insertBatch(hoodieWriteConfig, client, newCommitTime, prevInstant, numRecords, SparkRDDWriteClient::insert,
-            false, true, numRecords, numRecords * 4, 1, Option.empty(), INSTANT_GENERATOR,false).getKey();;
+            false, true, numRecords, numRecords * 4, 1, Option.empty(), INSTANT_GENERATOR,1).getKey();;
         assertRowNumberEqualsTo(40);
       } else {
         // Leave C4 as inflight
@@ -127,7 +127,7 @@ public class TestSavepointRestoreCopyOnWriteWithTestFormat extends HoodieClientT
       for (int i = 1; i <= 5; i++) {
         String newCommitTime = WriteClientTestUtils.createNewInstantTime();
         insertBatch(hoodieWriteConfig, client, newCommitTime, prevInstant, numRecords, SparkRDDWriteClient::insert,
-            false, true, numRecords, numRecords * i, 1, Option.empty(), INSTANT_GENERATOR,false).getKey();
+            false, true, numRecords, numRecords * i, 1, Option.empty(), INSTANT_GENERATOR,1).getKey();
         prevInstant = newCommitTime;
         if (i == 2) {
           // trigger savepoint
@@ -178,7 +178,7 @@ public class TestSavepointRestoreCopyOnWriteWithTestFormat extends HoodieClientT
       for (int i = 1; i <= 2; i++) {
         String newCommitTime = WriteClientTestUtils.createNewInstantTime();
         insertBatch(hoodieWriteConfig, client, newCommitTime, prevInstant, numRecords, SparkRDDWriteClient::insert,
-            false, true, numRecords, numRecords * i, 1, Option.empty(), INSTANT_GENERATOR,false).getKey();;
+            false, true, numRecords, numRecords * i, 1, Option.empty(), INSTANT_GENERATOR,1).getKey();;
         prevInstant = newCommitTime;
         if (i == 2) {
           // trigger savepoint
@@ -204,7 +204,7 @@ public class TestSavepointRestoreCopyOnWriteWithTestFormat extends HoodieClientT
       // write another batch
       insertBatch(hoodieWriteConfig, client, WriteClientTestUtils.createNewInstantTime(),
           rollbackInstant.get(), numRecords, SparkRDDWriteClient::insert,
-          false, true, numRecords, numRecords * 3, 1, Option.empty(), INSTANT_GENERATOR,false).getKey();;
+          false, true, numRecords, numRecords * 3, 1, Option.empty(), INSTANT_GENERATOR,1).getKey();;
       // restore
       client.restoreToSavepoint(Objects.requireNonNull(savepointCommit, "restore commit should not be null"));
       Assertions.assertEquals(1, metaClient.reloadActiveTimeline().getRestoreTimeline().filterCompletedInstants().countInstants());

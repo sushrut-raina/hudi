@@ -100,6 +100,7 @@ import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.sql.Dataset;
 import org.apache.spark.sql.Row;
 import org.apache.spark.sql.execution.datasources.WriteTaskStats;
+import org.codehaus.janino.Java;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -230,24 +231,19 @@ public class TestHoodieClientOnCopyOnWriteStorage extends HoodieClientTestBase {
     return castInsertBatch(HoodieWriteConfig.newBuilder().build(), client, newCommitTime, numRecordsInThisCommit, numSlices, expectedStatusSize, writeFn, false);
   }
 
+
   private Object castInsertBatch(BaseHoodieWriteClient client, String newCommitTime, int numRecordsInThisCommit,
                                  int numSlices, int expectedStatusSize, Function3<Object, BaseHoodieWriteClient, Object, String> writeFn, boolean skipCommit) throws Exception {
 
     return castInsertBatch(HoodieWriteConfig.newBuilder().build(), client, newCommitTime, numRecordsInThisCommit, numSlices, expectedStatusSize, writeFn, skipCommit);
   }
 
+
   protected Object castInsertBatch(HoodieWriteConfig config, BaseHoodieWriteClient client, String newCommitTime, int numRecordsInThisCommit,
                                    int numSlices, int expectedStatusSize, Function3<Object, BaseHoodieWriteClient, Object, String> writeFn, boolean skipCommit) throws Exception {
-
-    Pair<JavaRDD<WriteStatus>, List<HoodieRecord>> insertStatus = getClientWriter(config,(SparkRDDWriteClient) client, newCommitTime, "000", numRecordsInThisCommit, INSTANT_GENERATOR)
-        .writeFn((writeClient, records, commitTime) -> (JavaRDD<WriteStatus>) writeFn.apply(writeClient, records, commitTime))
-        .expectedTotalCommits(1)
-        .numSlices(numSlices)
-        .expectedTotalRecords(numRecordsInThisCommit)
-        .assertForCommit()
-        .insert()
-        .execute();
-
+    Pair<JavaRDD<WriteStatus>, List<HoodieRecord>> insertStatus = insertBatch(config, (SparkRDDWriteClient) client, newCommitTime,
+        "000", numRecordsInThisCommit, (writeClient, records, commitTime) -> (JavaRDD<WriteStatus>) writeFn.apply(writeClient, records, commitTime), false, true, numRecordsInThisCommit,
+        numRecordsInThisCommit, 1, Option.empty(), INSTANT_GENERATOR, numSlices);
     assertEquals(expectedStatusSize, insertStatus.getKey().count(), "expected status size didn't match. ");
     return insertStatus;
   }
@@ -258,9 +254,9 @@ public class TestHoodieClientOnCopyOnWriteStorage extends HoodieClientTestBase {
                                         Function3<Object, BaseHoodieWriteClient, Object, String> writeFn, boolean isPreppedAPI,
                                         boolean assertForCommit, int expRecordsInThisCommit,
                                         boolean filterForCommitTimeWithAssert, InstantGenerator instantGenerator) throws Exception {
-    return insertFirstBatch(writeConfig, (SparkRDDWriteClient) client, newCommitTime, initCommitTime, numRecordsInThisCommit,
-        (writeClient, records, commitTime) -> (JavaRDD<WriteStatus>) writeFn.apply(writeClient, records, commitTime),
+    return insertFirstBatch(writeConfig, (SparkRDDWriteClient) client, newCommitTime, initCommitTime, numRecordsInThisCommit, (writeClient, records, commitTime) -> (JavaRDD<WriteStatus>) writeFn.apply(writeClient, records, commitTime),
         isPreppedAPI, assertForCommit, expRecordsInThisCommit, filterForCommitTimeWithAssert, instantGenerator);
+
   }
 
   @Override
@@ -270,9 +266,10 @@ public class TestHoodieClientOnCopyOnWriteStorage extends HoodieClientTestBase {
                                   Function3<Object, BaseHoodieWriteClient, Object, String> writeFn,
                                   boolean assertForCommit, int expRecordsInThisCommit, int expTotalRecords, int expTotalCommits,
                                   boolean filterForCommitTimeWithAssert, InstantGenerator instantGenerator, boolean skipCommit) throws Exception {
+
     return writeBatch((SparkRDDWriteClient) client, newCommitTime, prevCommitTime, commitTimesBetweenPrevAndNew, initCommitTime, numRecordsInThisCommit, recordGenFunction,
         (writeClient, records, commitTime) -> (JavaRDD<WriteStatus>) writeFn.apply(writeClient, records, commitTime),
-        assertForCommit, expRecordsInThisCommit, expTotalRecords, expTotalCommits, filterForCommitTimeWithAssert, instantGenerator, skipCommit);
+        assertForCommit, expRecordsInThisCommit, expTotalRecords, expTotalCommits, filterForCommitTimeWithAssert, instantGenerator, skipCommit,1);
   }
 
   @Override
@@ -286,7 +283,8 @@ public class TestHoodieClientOnCopyOnWriteStorage extends HoodieClientTestBase {
 
     return writeBatch((SparkRDDWriteClient) client, newCommitTime, prevCommitTime, commitTimesBetweenPrevAndNew, initCommitTime, numRecordsInThisCommit, recordGenFunction,
         (writeClient, records, commitTime) -> (JavaRDD<WriteStatus>) writeFn.apply(writeClient, records, commitTime), assertForCommit, expRecordsInThisCommit, expTotalRecords,
-        expTotalCommits, filterForCommitTimeWithAssert, instantGenerator, false);
+        expTotalCommits, filterForCommitTimeWithAssert, instantGenerator, 1);
+
   }
 
   @Override
@@ -294,8 +292,10 @@ public class TestHoodieClientOnCopyOnWriteStorage extends HoodieClientTestBase {
                                    String prevCommitTime, String initCommitTime, int numRecordsInThisCommit, boolean isPreppedAPI,
                                    boolean assertForCommit, int expRecordsInThisCommit, int expTotalRecords,
                                    boolean filterForCommitTimeWithAssert, TimelineFactory timelineFactory, InstantGenerator instantGenerator) throws Exception {
+
     return deleteBatch(writeConfig, (SparkRDDWriteClient) client, newCommitTime, prevCommitTime, initCommitTime, numRecordsInThisCommit,
         isPreppedAPI, assertForCommit, expRecordsInThisCommit, expTotalRecords, filterForCommitTimeWithAssert, timelineFactory, instantGenerator);
+
   }
 
   /**
@@ -422,10 +422,9 @@ public class TestHoodieClientOnCopyOnWriteStorage extends HoodieClientTestBase {
 
   private void insertWithConfig(HoodieWriteConfig config, int numRecords, String instant) throws Exception {
     try (SparkRDDWriteClient client = getHoodieWriteClient(config)) {
-      Function3<JavaRDD<WriteStatus>, SparkRDDWriteClient, JavaRDD<HoodieRecord>, String> writeFn = (writeClient, recordRDD, instantTime) ->
-          writeClient.bulkInsert(recordRDD, instantTime, Option.empty());
-      JavaRDD<WriteStatus> result = insertFirstBatch(config, client, instant,
-          "000", numRecords, writeFn, false, false, numRecords, INSTANT_GENERATOR);
+      castInsertFirstBatch(config, client, instant,
+          "000", numRecords, (writeClient, recordRDD, instantTime) ->
+              writeClient.bulkInsert(recordRDD, instantTime, Option.empty()), false, false, numRecords, INSTANT_GENERATOR);
     }
   }
 
@@ -558,7 +557,7 @@ public class TestHoodieClientOnCopyOnWriteStorage extends HoodieClientTestBase {
     String newCommitTime = "001";
     String initCommitTime = "000";
     int numRecords = 200;
-    insertFirstBatch(hoodieWriteConfig, client, newCommitTime, initCommitTime, numRecords, SparkRDDWriteClient::insert,
+    castInsertFirstBatch(hoodieWriteConfig, client, newCommitTime, initCommitTime, numRecords, BaseHoodieWriteClient::insert,
         false, true, numRecords, config.populateMetaFields(), INSTANT_GENERATOR);
 
     // Write 2 (updates)
@@ -566,8 +565,8 @@ public class TestHoodieClientOnCopyOnWriteStorage extends HoodieClientTestBase {
     newCommitTime = "004";
     numRecords = 100;
     String commitTimeBetweenPrevAndNew = "002";
-    updateBatch(hoodieWriteConfig, client, newCommitTime, prevCommitTime,
-        Option.of(Arrays.asList(commitTimeBetweenPrevAndNew)), initCommitTime, numRecords, SparkRDDWriteClient::upsert, false, true,
+    castUpdateBatch(hoodieWriteConfig, client, newCommitTime, prevCommitTime,
+        Option.of(Arrays.asList(commitTimeBetweenPrevAndNew)), initCommitTime, numRecords, BaseHoodieWriteClient::upsert, false, true,
         numRecords, 200, 2, config.populateMetaFields(), INSTANT_GENERATOR);
 
     // Delete 1
@@ -575,7 +574,7 @@ public class TestHoodieClientOnCopyOnWriteStorage extends HoodieClientTestBase {
     newCommitTime = "005";
     numRecords = 50;
 
-    deleteBatch(hoodieWriteConfig, client, newCommitTime, prevCommitTime,
+    castDeleteBatch(hoodieWriteConfig, client, newCommitTime, prevCommitTime,
         initCommitTime, numRecords, false, true,
         0, 150, config.populateMetaFields(), TIMELINE_FACTORY, INSTANT_GENERATOR);
 

@@ -1037,15 +1037,14 @@ public class TestHoodieClientMultiWriter extends HoodieClientTestBase {
     int numRecords = 100;
     SparkRDDWriteClient client1 = getHoodieWriteClient(cfg);
     String commitTimeBetweenPrevAndNew = "002";
-    JavaRDD<WriteStatus> result1 = updateBatch(cfg, client1, newCommitTime, "001",
-        Option.of(Arrays.asList(commitTimeBetweenPrevAndNew)), "000", numRecords, SparkRDDWriteClient::upsert, false, false,
-        numRecords, 200, 2, true, INSTANT_GENERATOR, true);
+    JavaRDD<WriteStatus> result1 = (JavaRDD<WriteStatus>) (updateBatch(cfg, client1, newCommitTime, "001", Option.of(Arrays.asList(commitTimeBetweenPrevAndNew)), "000", numRecords, SparkRDDWriteClient::upsert, false, false,
+        numRecords, 200, 2, true, INSTANT_GENERATOR, true)).getKey();
     // Start and finish another commit while the previous writer for commit 003 is running
     newCommitTime = "004";
     SparkRDDWriteClient client2 = getHoodieWriteClient(cfg);
-    JavaRDD<WriteStatus> result2 = updateBatch(cfg2, client2, newCommitTime, "001",
+    JavaRDD<WriteStatus> result2 = (JavaRDD<WriteStatus>) (updateBatch(cfg2, client2, newCommitTime, "001",
         Option.of(Arrays.asList(commitTimeBetweenPrevAndNew)), "000", numRecords, SparkRDDWriteClient::upsert, false, false,
-        numRecords, 200, 2, INSTANT_GENERATOR);
+        numRecords, 200, 2, INSTANT_GENERATOR).getKey());
     // Schedule and run clustering while previous writer for commit 003 is running
     SparkRDDWriteClient client3 = getHoodieWriteClient(cfg3);
     // schedule clustering
@@ -1296,7 +1295,7 @@ public class TestHoodieClientMultiWriter extends HoodieClientTestBase {
                                                    String prevCommitTime, String newCommitTime, int numRecords,
                                                    String partition) throws Exception {
     insertBatch(cfg, client, newCommitTime, prevCommitTime, numRecords, SparkRDDWriteClient::insert,
-        false, false, numRecords, numRecords, 1, Option.of(partition), INSTANT_GENERATOR,false).getKey();
+        false, false, numRecords, numRecords, 1, Option.of(partition), INSTANT_GENERATOR,1).getKey();
   }
 
   private JavaRDD<WriteStatus> createCommitWithInserts(HoodieWriteConfig cfg, SparkRDDWriteClient client,
@@ -1308,8 +1307,8 @@ public class TestHoodieClientMultiWriter extends HoodieClientTestBase {
                                                        String prevCommitTime, String newCommitTime, int numRecords,
                                                        boolean doCommit) throws Exception {
     // Finish first base commit
-    List<WriteStatus> result = insertFirstBatch(cfg, client, newCommitTime, prevCommitTime, numRecords, SparkRDDWriteClient::bulkInsert,
-        false, false, numRecords, true, INSTANT_GENERATOR, true).collect();
+    List<WriteStatus> result = ((JavaRDD<WriteStatus>)insertFirstBatch(cfg, client, newCommitTime, prevCommitTime, numRecords, SparkRDDWriteClient::bulkInsert,
+        false, false, numRecords, true, INSTANT_GENERATOR, true).getKey()).collect();
     if (doCommit) {
       assertTrue(client.commit(newCommitTime, jsc.parallelize(result)), "Commit should succeed");
     }
@@ -1331,7 +1330,7 @@ public class TestHoodieClientMultiWriter extends HoodieClientTestBase {
                                        Option<String> commitTimeBetweenPrevAndNew, String newCommitTime, int numRecords)
       throws Exception {
     List<String> commitsBetweenPrevAndNew = commitTimeBetweenPrevAndNew.isEmpty() ? Collections.emptyList() : Collections.singletonList(commitTimeBetweenPrevAndNew.get());
-    JavaRDD<WriteStatus> result = updateBatch(cfg, client, newCommitTime, prevCommit,
+    updateBatch(cfg, client, newCommitTime, prevCommit,
         Option.of(commitsBetweenPrevAndNew), "000", numRecords, SparkRDDWriteClient::upsert, false, false,
         numRecords, 200, 2, INSTANT_GENERATOR);
   }
