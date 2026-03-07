@@ -51,10 +51,12 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.testcontainers.dockerclient.InvalidConfigurationException;
 
 import java.io.IOException;
 import java.util.List;
 import java.util.function.Function;
+import java.util.function.Supplier;
 
 import static org.apache.hudi.testutils.Assertions.assertNoWriteErrors;
 import static org.apache.hudi.testutils.Assertions.assertPartitionMetadataForKeys;
@@ -69,6 +71,182 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 public class HoodieClientTestBase extends HoodieSparkClientTestHarness {
 
   protected static final Logger LOG = LoggerFactory.getLogger(HoodieClientTestBase.class);
+
+  /**
+   * Utility class that helps prevent overload implosion, every test configures its own writer
+   */
+  public HoodieClientTestWriter getClientWriter(HoodieWriteConfig writeConfig,
+                                                SparkRDDWriteClient client,
+                                                String newCommitTime,
+                                                String initCommitTime,
+                                                int numRecords,
+                                                InstantGenerator instantGenerator) {
+    return new HoodieClientTestWriter(writeConfig, client, newCommitTime, initCommitTime, numRecords, instantGenerator);
+  }
+
+  public final class HoodieClientTestWriter {
+
+    enum Op { INSERT, UPDATE, DELETE, WRITE}
+
+    private HoodieWriteConfig writeConfig;
+    private SparkRDDWriteClient client;
+    private String newCommitTime;
+    private String initCommitTime;
+    private String prevCommitTime;
+    private int numRecordsInCommit;
+    private Function3<JavaRDD<WriteStatus>, SparkRDDWriteClient, JavaRDD<HoodieRecord>, String> writeFn;
+    private boolean isPreppedApi;
+    private boolean assertForCommit;
+    private int expRecordsInCommit;
+    private int expTotalRecords;
+    private int expTotalCommits;
+    private boolean filterForCommitTimeWithAssert;
+    private boolean skipCommit;
+    private final InstantGenerator instantGenerator;
+    private Option<List<String>> commitTimesBetweenPrevAndNew;
+    private Option<String> partition;
+    private Supplier<List<HoodieRecord>> recordGenFunction;
+    private Op op;
+    private int numSlices;
+    private int expectedTotalRecordsInCommit;
+
+
+    private HoodieClientTestWriter(HoodieWriteConfig writeConfig,
+                                   SparkRDDWriteClient client,
+                                   String newCommitTime,
+                                   String initCommitTime,
+                                   int numRecordsInCommit,
+                                   InstantGenerator instantGenerator) {
+
+      this.writeConfig = writeConfig;
+      this.client = client;
+      this.writeFn = writeFn;
+      this.newCommitTime = newCommitTime;
+      this.initCommitTime = initCommitTime;
+      this.numRecordsInCommit = numRecordsInCommit;
+      this.instantGenerator = instantGenerator;
+      this.expRecordsInCommit = numRecordsInCommit;
+
+      // assume defaults
+      this.isPreppedApi = false;
+      this.assertForCommit = true;
+      this.skipCommit = false;
+      this.filterForCommitTimeWithAssert = false;
+      this.expTotalCommits = 1; //first batch assumed
+      this.expTotalRecords = expRecordsInCommit;
+      this.expectedTotalRecordsInCommit = numRecordsInCommit;
+      this.prevCommitTime = "";
+      this.commitTimesBetweenPrevAndNew = Option.empty();
+      this.partition = Option.empty();
+      this.numSlices = 1;
+
+    }
+
+    public HoodieClientTestWriter filterForCommitTimeWithAssert(boolean filterForCommitTimeWithAssert) {
+      this.filterForCommitTimeWithAssert = filterForCommitTimeWithAssert;
+      return this;
+    }
+
+    public HoodieClientTestWriter recordGenFunction(Supplier<List<HoodieRecord>> recordGenFunction) {
+      this.recordGenFunction = recordGenFunction;
+      return this;
+    }
+
+    public HoodieClientTestWriter prevCommitTime(String prevCommitTime) {
+      this.prevCommitTime = prevCommitTime;
+      return this;
+    }
+
+    public HoodieClientTestWriter numSlices(int numSlices) {
+      this.numSlices = numSlices;
+      return this;
+    }
+
+    public HoodieClientTestWriter expectedTotalCommits(int totalCommits) {
+      this.expTotalCommits = totalCommits;
+      return this;
+    }
+
+    public HoodieClientTestWriter commitTimeBetweenPrevAndNew(List<String> commitTimesBetweenPrevAndNew) {
+      this.commitTimesBetweenPrevAndNew = Option.of(commitTimesBetweenPrevAndNew);
+      return this;
+    }
+
+    public HoodieClientTestWriter expectedTotalRecords(int expTotalRecords) {
+      this.expTotalRecords = expTotalRecords;
+      return this;
+    }
+
+    public HoodieClientTestWriter isPrepped() {
+      this.isPreppedApi = true;
+      return this;
+    }
+
+
+    public HoodieClientTestWriter assertForCommit(boolean assertForCommit) {
+      this.assertForCommit = assertForCommit;
+      return this;
+    }
+
+    public HoodieClientTestWriter upsert() {
+      this.op = Op.UPDATE;
+      return this;
+    }
+
+    public HoodieClientTestWriter partition(Option<String> partition) {
+      this.partition = partition;
+      return this;
+    }
+
+    public HoodieClientTestWriter insert() {
+      this.op = Op.INSERT;
+      return this;
+    }
+
+    public HoodieClientTestWriter update() {
+      this.op = Op.UPDATE;
+      return this;
+    }
+
+    public HoodieClientTestWriter write() {
+      this.op = Op.WRITE;
+      return this;
+    }
+
+    public HoodieClientTestWriter delete() {
+      this.op = Op.DELETE;
+      return this;
+    }
+
+    public HoodieClientTestWriter writeFn(Function3<JavaRDD<WriteStatus>, SparkRDDWriteClient, JavaRDD<HoodieRecord>, String> writeFn) {
+      this.writeFn = writeFn;
+      return this;
+    }
+
+    public HoodieClientTestWriter expectedTotalRecordsInCommit(int expectedTotalRecordsInCommit) {
+      this.expectedTotalRecordsInCommit = expectedTotalRecordsInCommit;
+      return this;
+    }
+
+    public Pair<JavaRDD<WriteStatus>, List<HoodieRecord>> execute() throws Exception {
+
+      switch(this.op) {
+        case INSERT :
+          return insertBatch(writeConfig, client, newCommitTime, initCommitTime, numRecordsInCommit,
+            writeFn, isPreppedApi, assertForCommit, expRecordsInCommit, expTotalRecords, expTotalCommits,
+            partition, instantGenerator, skipCommit);
+        case UPDATE:
+          return updateBatch(writeConfig, client, newCommitTime, initCommitTime, numRecordsInCommit,
+              writeFn, isPreppedApi, assertForCommit, expRecordsInCommit, expTotalRecords, expTotalCommits,
+              partition, instantGenerator, skipCommit);
+        case DELETE:
+          return deleteBatch(writeConfig, client, newCommitTime, initCommitTime, numRecordsInCommit,
+              writeFn, isPreppedApi, assertForCommit, expRecordsInCommit, expTotalRecords, expTotalCommits,
+              partition, instantGenerator, skipCommit);
+      }
+      throw new InvalidConfigurationException("Op " + op + " not supported ");
+    }
+  }
 
   @BeforeEach
   public void setUp() throws Exception {

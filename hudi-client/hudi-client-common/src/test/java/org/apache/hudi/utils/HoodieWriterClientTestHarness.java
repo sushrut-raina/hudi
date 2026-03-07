@@ -1061,7 +1061,7 @@ public abstract class HoodieWriterClientTestHarness extends HoodieCommonTestHarn
     verifyClusteredFilesWithReplaceCommitMetadata(partitionPath);
   }
 
-  private void generateInsertsAndCommit(HoodieWriteConfig config, Function transformInputFn, Function transformOutputFn) {
+  protected void generateInsertsAndCommit(HoodieWriteConfig config, Function transformInputFn, Function transformOutputFn) {
     try (BaseHoodieWriteClient client = getHoodieWriteClient(config)) {
       String commitTime = client.startCommit();
       List<HoodieRecord> records = dataGen.generateInserts(commitTime, 200);
