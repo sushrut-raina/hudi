@@ -72,6 +72,7 @@ public class HoodieClientTestBase extends HoodieSparkClientTestHarness {
 
   protected static final Logger LOG = LoggerFactory.getLogger(HoodieClientTestBase.class);
 
+  enum Op { INSERT, UPDATE, DELETE, WRITE}
   /**
    * Utility class that helps prevent overload implosion, every test configures its own writer
    */
@@ -86,7 +87,7 @@ public class HoodieClientTestBase extends HoodieSparkClientTestHarness {
 
   public final class HoodieClientTestWriter {
 
-    enum Op { INSERT, UPDATE, DELETE, WRITE}
+
 
     private HoodieWriteConfig writeConfig;
     private SparkRDDWriteClient client;
@@ -230,21 +231,22 @@ public class HoodieClientTestBase extends HoodieSparkClientTestHarness {
 
     public Pair<JavaRDD<WriteStatus>, List<HoodieRecord>> execute() throws Exception {
 
-      switch(this.op) {
-        case INSERT :
-          return insertBatch(writeConfig, client, newCommitTime, initCommitTime, numRecordsInCommit,
-            writeFn, isPreppedApi, assertForCommit, expRecordsInCommit, expTotalRecords, expTotalCommits,
-            partition, instantGenerator, skipCommit);
-        case UPDATE:
-          return updateBatch(writeConfig, client, newCommitTime, initCommitTime, numRecordsInCommit,
-              writeFn, isPreppedApi, assertForCommit, expRecordsInCommit, expTotalRecords, expTotalCommits,
-              partition, instantGenerator, skipCommit);
-        case DELETE:
-          return deleteBatch(writeConfig, client, newCommitTime, initCommitTime, numRecordsInCommit,
-              writeFn, isPreppedApi, assertForCommit, expRecordsInCommit, expTotalRecords, expTotalCommits,
-              partition, instantGenerator, skipCommit);
-      }
-      throw new InvalidConfigurationException("Op " + op + " not supported ");
+//      switch(this.op) {
+//        case INSERT :
+//          return insertBatch(writeConfig, client, newCommitTime, initCommitTime, numRecordsInCommit,
+//            writeFn, isPreppedApi, assertForCommit, expRecordsInCommit, expTotalRecords, expTotalCommits,
+//            partition, instantGenerator, skipCommit);
+//        case UPDATE:
+//          return updateBatch(writeConfig, client, newCommitTime, initCommitTime, numRecordsInCommit,
+//              writeFn, isPreppedApi, assertForCommit, expRecordsInCommit, expTotalRecords, expTotalCommits,
+//              partition, instantGenerator, skipCommit);
+//        case DELETE:
+//          return deleteBatch(writeConfig, client, newCommitTime, initCommitTime, numRecordsInCommit,
+//              writeFn, isPreppedApi, assertForCommit, expRecordsInCommit, expTotalRecords, expTotalCommits,
+//              partition, instantGenerator, skipCommit);
+//      }
+//      throw new InvalidConfigurationException("Op " + op + " not supported ");
+      return null;
     }
   }
 

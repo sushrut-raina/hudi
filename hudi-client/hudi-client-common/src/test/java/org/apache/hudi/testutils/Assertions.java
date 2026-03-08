@@ -69,15 +69,14 @@ public class Assertions {
   }
 
 
-
-  public static void assertRecordCounts(int recordCount, HoodieStorage storage,  String basePath, List<WriteStatus> statuses, FileFormatUtils fileUtils) {
+  public static void assertRecordCounts(int recordCount, HoodieStorage storage, String basePath, List<WriteStatus> statuses, FileFormatUtils fileUtils) {
     assertEquals(recordCount,
         statuses.stream().mapToInt(status -> fileUtils.readRowKeys(storage, new StoragePath(basePath, status.getStat().getPath())).size()).sum(),
         "Should contain " + recordCount + " records");
   }
 
   public static void assertRecordCommits(HoodieStorage storage, List<String> expectedCommitTimes, FileFormatUtils fileUtils, String basePath,
-                                         String filePath,  Set<String> commitKeys) {
+                                         String filePath, Set<String> commitKeys) {
     StoragePath newFile = new StoragePath(basePath, filePath);
     for (GenericRecord record : fileUtils.readAvroRecords(storage, newFile)) {
       String recordKey = record.get(HoodieRecord.RECORD_KEY_METADATA_FIELD).toString();
@@ -89,8 +88,8 @@ public class Assertions {
     }
   }
 
-  public static void assertFileCountsAndRecordCountsInPartition(int expectedFileCount, int expectedRecordCount, HoodieTable table, String commitTime, String partitionPath,
-                                                  FileFormatUtils fileUtils, HoodieStorage storage) {
+  public static void assertFileAndRecordCountsAtCommitTime(int expectedFileCount, int expectedRecordCount, HoodieTable table, String commitTime, String partitionPath,
+                                                                FileFormatUtils fileUtils, HoodieStorage storage) {
     List<HoodieBaseFile> files = table.getBaseFileOnlyView()
         .getLatestBaseFilesBeforeOrOn(partitionPath, commitTime).collect(Collectors.toList());
     assertEquals(expectedFileCount, files.size(), "Expected " + expectedFileCount + " valid data files.");
@@ -105,11 +104,11 @@ public class Assertions {
   /**
    * Asserts that an existing file is expanded/updated with expected record counts.
    */
-  public static void assertFileExpansion(String prevCommitTime, String fileId, List<WriteStatus> statusList) {
+  public static void assertFileExpansion(String prevCommitTime, String fileId, List<WriteStatus> newCommitStatusList) {
 
-    assertEquals(1, statusList.size(), "Just 1 file needs to be updated.");
-    assertEquals(fileId, statusList.get(0).getFileId(), "Existing file should be expanded");
-    assertEquals(prevCommitTime, statusList.get(0).getStat().getPrevCommit(), "Existing file should be expanded");
+    assertEquals(1, newCommitStatusList.size(), "Just 1 file needs to be updated.");
+    assertEquals(fileId, newCommitStatusList.get(0).getFileId(), "Existing file should be expanded");
+    assertEquals(prevCommitTime, newCommitStatusList.get(0).getStat().getPrevCommit(), "Existing file should be expanded");
   }
 
 
@@ -124,16 +123,16 @@ public class Assertions {
   }
 
   public static void assertPartitionMetadataForRecords(String basePath, List<HoodieRecord> inputRecords,
-                                                HoodieStorage storage) throws IOException {
+                                                       HoodieStorage storage) throws IOException {
     String[] partitionPathSet = inputRecords.stream()
-            .map(HoodieRecord::getPartitionPath).distinct().toArray(String[]::new);
+        .map(HoodieRecord::getPartitionPath).distinct().toArray(String[]::new);
     assertPartitionMetadata(basePath, partitionPathSet, storage);
   }
 
   public static void assertPartitionMetadataForKeys(String basePath, List<HoodieKey> inputKeys,
                                                     HoodieStorage storage) throws IOException {
     String[] partitionPathSet = inputKeys.stream()
-            .map(HoodieKey::getPartitionPath).distinct().toArray(String[]::new);
+        .map(HoodieKey::getPartitionPath).distinct().toArray(String[]::new);
     assertPartitionMetadata(basePath, partitionPathSet, storage);
   }
 
@@ -148,10 +147,10 @@ public class Assertions {
                                              HoodieStorage storage) throws IOException {
     for (String partitionPath : partitionPaths) {
       assertTrue(
-              HoodiePartitionMetadata.hasPartitionMetadata(
-                      storage, new StoragePath(basePath, partitionPath)));
+          HoodiePartitionMetadata.hasPartitionMetadata(
+              storage, new StoragePath(basePath, partitionPath)));
       HoodiePartitionMetadata pmeta =
-              new HoodiePartitionMetadata(storage, new StoragePath(basePath, partitionPath));
+          new HoodiePartitionMetadata(storage, new StoragePath(basePath, partitionPath));
       pmeta.readFromFS();
       assertEquals(HoodieTestDataGenerator.DEFAULT_PARTITION_DEPTH, pmeta.getPartitionDepth());
     }
@@ -194,7 +193,7 @@ public class Assertions {
   }
 
   public static void assertActualAndExpectedPartitionPathRecordKeyMatches(List<Pair<String, String>> expectedPartitionPathRecKeyPairs,
-                                                                    List<Pair<String, String>> actualPartitionPathRecKeyPairs) {
+                                                                          List<Pair<String, String>> actualPartitionPathRecKeyPairs) {
     // verify all partitionpath, record key matches
     assertEquals(expectedPartitionPathRecKeyPairs.size(), actualPartitionPathRecKeyPairs.size());
     for (Pair<String, String> entry : actualPartitionPathRecKeyPairs) {
@@ -209,5 +208,24 @@ public class Assertions {
   public static void assertComplexKeyGeneratorValidationThrows(Executable writeOperation, String operation) {
     HoodieException exception = assertThrows(HoodieException.class, writeOperation);
     assertEquals(getComplexKeygenErrorMessage(operation), exception.getMessage());
+  }
+
+  public static void assertNewInsertLeadsToFileExpansion(HoodieStorage storage, String basePath, Pair<Pair<List<WriteStatus>, List<HoodieRecord>>, Set<String>> prevInsertResult,
+                                                         Pair<Pair<List<WriteStatus>, List<HoodieRecord>>, Set<String>> newInsertResult,
+                                                         String prevCommitTime,
+                                                         String newCommitTime,
+                                                         FileFormatUtils fileUtils
+  ) {
+
+    Set<String> keys1 = prevInsertResult.getRight();
+    List<WriteStatus> prevStatuses = prevInsertResult.getKey().getKey();
+    String file1 = prevStatuses.get(0).getFileId();
+
+    List<WriteStatus> newStatuses = newInsertResult.getKey().getKey();
+    Set<String> keys2 = newInsertResult.getRight();
+    keys1.addAll(keys2);
+
+    assertFileExpansion(prevCommitTime, file1, newStatuses);
+    assertRecordCommits(storage, List.of(prevCommitTime, newCommitTime), fileUtils, basePath, newStatuses.get(0).getStat().getPath(), keys1);
   }
 }
