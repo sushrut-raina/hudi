@@ -34,9 +34,11 @@ import org.apache.hudi.exception.HoodieException;
 import org.apache.hudi.storage.HoodieStorage;
 import org.apache.hudi.storage.StoragePath;
 import org.apache.hudi.table.HoodieTable;
+import org.apache.hudi.utils.HoodieWriterClientTestHarness;
 
 import org.apache.avro.generic.GenericRecord;
 import org.apache.avro.generic.IndexedRecord;
+import org.apache.hadoop.hdfs.client.HdfsClientConfigKeys;
 import org.junit.jupiter.api.function.Executable;
 
 import java.io.File;
@@ -210,22 +212,4 @@ public class Assertions {
     assertEquals(getComplexKeygenErrorMessage(operation), exception.getMessage());
   }
 
-  public static void assertNewInsertLeadsToFileExpansion(HoodieStorage storage, String basePath, Pair<Pair<List<WriteStatus>, List<HoodieRecord>>, Set<String>> prevInsertResult,
-                                                         Pair<Pair<List<WriteStatus>, List<HoodieRecord>>, Set<String>> newInsertResult,
-                                                         String prevCommitTime,
-                                                         String newCommitTime,
-                                                         FileFormatUtils fileUtils
-  ) {
-
-    Set<String> keys1 = prevInsertResult.getRight();
-    List<WriteStatus> prevStatuses = prevInsertResult.getKey().getKey();
-    String file1 = prevStatuses.get(0).getFileId();
-
-    List<WriteStatus> newStatuses = newInsertResult.getKey().getKey();
-    Set<String> keys2 = newInsertResult.getRight();
-    keys1.addAll(keys2);
-
-    assertFileExpansion(prevCommitTime, file1, newStatuses);
-    assertRecordCommits(storage, List.of(prevCommitTime, newCommitTime), fileUtils, basePath, newStatuses.get(0).getStat().getPath(), keys1);
-  }
 }

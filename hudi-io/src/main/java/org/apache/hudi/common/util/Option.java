@@ -187,4 +187,8 @@ public final class Option<T> implements Serializable {
             ? "Option{val=" + val + "}"
             : "Optional.empty";
   }
+
+  public boolean ispreset() {
+    return false;
+  }
 }
