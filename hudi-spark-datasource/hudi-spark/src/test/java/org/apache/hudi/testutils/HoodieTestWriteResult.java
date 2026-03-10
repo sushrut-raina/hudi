@@ -21,8 +21,10 @@ package org.apache.hudi.testutils;
 import org.apache.hudi.client.WriteStatus;
 import org.apache.hudi.common.model.HoodieRecord;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 /**
  * Utility to capture write results in tests
@@ -31,6 +33,10 @@ public class HoodieTestWriteResult {
   private final List<WriteStatus> statuses;
   private final List<HoodieRecord> records;
   private final Set<String> recordKeys;
+
+  public HoodieTestWriteResult(List<WriteStatus> statuses, List<HoodieRecord> records) {
+   this(statuses, records, records.stream().map(HoodieRecord::getRecordKey).collect(Collectors.toSet()));
+  }
 
   public HoodieTestWriteResult(List<WriteStatus> statuses, List<HoodieRecord> records, Set<String> recordKeys) {
     this.statuses = statuses;

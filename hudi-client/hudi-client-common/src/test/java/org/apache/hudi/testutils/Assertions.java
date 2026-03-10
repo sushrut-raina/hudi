@@ -51,6 +51,7 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 import static org.apache.hudi.keygen.KeyGenUtils.getComplexKeygenErrorMessage;
+import static org.apache.hudi.utils.HoodieWriterClientTestHarness.getFileUtilsInstance;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -212,4 +213,9 @@ public class Assertions {
     assertEquals(getComplexKeygenErrorMessage(operation), exception.getMessage());
   }
 
+  public static void assertRecordCountInFile(int expectedRecords, HoodieStorage storage,  HoodieTableMetaClient metaClient,String basePath, String filePath){
+    StoragePath newFile = new StoragePath(basePath, filePath);
+    assertEquals(expectedRecords,getFileUtilsInstance(metaClient).readRowKeys(storage, newFile).size(),
+        "file should contain " + expectedRecords + " records");
+  }
 }
