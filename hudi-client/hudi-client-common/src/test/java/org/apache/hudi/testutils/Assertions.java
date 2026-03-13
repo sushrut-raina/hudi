@@ -71,7 +71,6 @@ public class Assertions {
         assertFalse(status.hasErrors(), "Errors found in write of " + status.getFileId())));
   }
 
-
   public static void assertRecordCounts(int recordCount, HoodieStorage storage, String basePath, List<WriteStatus> statuses, FileFormatUtils fileUtils) {
     assertEquals(recordCount,
         statuses.stream().mapToInt(status -> fileUtils.readRowKeys(storage, new StoragePath(basePath, status.getStat().getPath())).size()).sum(),

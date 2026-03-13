@@ -20,6 +20,7 @@ package org.apache.hudi.utils;
 
 import org.apache.hudi.avro.model.HoodieCleanMetadata;
 import org.apache.hudi.avro.model.HoodieClusteringPlan;
+import org.apache.hudi.client.BaseHoodieClient;
 import org.apache.hudi.client.BaseHoodieWriteClient;
 import org.apache.hudi.client.WriteClientTestUtils;
 import org.apache.hudi.client.WriteStatus;
@@ -105,6 +106,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -136,10 +138,12 @@ import static org.apache.hudi.common.testutils.Transformations.randomSelectAsHoo
 import static org.apache.hudi.common.testutils.Transformations.recordsToRecordKeySet;
 import static org.apache.hudi.common.util.HoodieRecordUtils.getOrderingFieldNames;
 import static org.apache.hudi.config.HoodieClusteringConfig.SCHEDULE_INLINE_CLUSTERING;
+import static org.apache.hudi.testutils.Assertions.assertFileExpansion;
 import static org.apache.hudi.testutils.Assertions.assertNoDupesWithinPartition;
 import static org.apache.hudi.testutils.Assertions.assertNoDuplicatesInPartition;
 import static org.apache.hudi.testutils.Assertions.assertNoWriteErrors;
 import static org.apache.hudi.testutils.Assertions.assertRecordCommits;
+import static org.apache.hudi.testutils.Assertions.assertRecordCountInFile;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -1562,5 +1566,4 @@ public abstract class HoodieWriterClientTestHarness extends HoodieCommonTestHarn
     assertEquals(numTotalUpdatesInCommit3, prevInsertSize, "Total updates in " + newCommit + " must add up");
     assertEquals(numTotalInsertsInCommit3, newCommitKeys.size(), "Total inserts " + newCommit + " must add up");
   }
-
 }
