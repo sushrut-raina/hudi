@@ -49,6 +49,7 @@ import org.apache.hudi.common.table.view.HoodieTableFileSystemView;
 import org.apache.hudi.common.table.view.TableFileSystemView;
 import org.apache.hudi.common.testutils.HoodieTestTable;
 import org.apache.hudi.common.testutils.HoodieTestUtils;
+import org.apache.hudi.common.util.Functions;
 import org.apache.hudi.common.util.HoodieTimer;
 import org.apache.hudi.common.util.Option;
 import org.apache.hudi.common.util.collection.Pair;
@@ -122,6 +123,7 @@ import static org.junit.jupiter.api.Assertions.assertLinesMatch;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
+import org.apache.hudi.common.util.Functions.Function1;
 
 /**
  * The test harness for resource initialization and cleanup.
@@ -747,5 +749,15 @@ public abstract class HoodieSparkClientTestHarness extends HoodieWriterClientTes
       assertTrue(keys.contains(recordKey), "key expected to be part of " + newCommitTime);
       assertFalse(deleteResult.getRight().contains(recordKey), "Key deleted");
     }
+  }
+
+  protected void testMultipleOpsForSingleCommit(SparkRDDWriteClient<HoodieRecord> client, String instantTime, List<Function2<JavaRDD<WriteStatus>, SparkRDDWriteClient, String>> operations) throws IOException {
+    WriteClientTestUtils.startCommitWithTime(client, instantTime);
+    JavaRDD<WriteStatus> writes = operations.stream()
+        .map(op -> op.applyUnchecked(client, instantTime))
+        .reduce(JavaRDD::union)
+        .orElseGet(() -> jsc.emptyRDD());
+    assertTrue(client.commit(instantTime, writes), "Commit should succeed");
+    assertTrue(testTable.commitExists(instantTime), "After explicit commit, commit file should be created");
   }
 }

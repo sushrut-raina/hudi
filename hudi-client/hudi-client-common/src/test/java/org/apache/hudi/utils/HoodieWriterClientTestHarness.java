@@ -297,6 +297,14 @@ public abstract class HoodieWriterClientTestHarness extends HoodieCommonTestHarn
   public interface Function2<R, T1, T2> {
 
     R apply(T1 v1, T2 v2) throws IOException;
+
+    default R applyUnchecked(T1 v1, T2 v2) {
+      try {
+        return apply(v1, v2);
+      } catch (IOException e) {
+        throw new RuntimeException(e);
+      }
+    }
   }
 
   @FunctionalInterface
