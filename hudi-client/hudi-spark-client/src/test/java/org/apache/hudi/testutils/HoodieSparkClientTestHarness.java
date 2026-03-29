@@ -108,6 +108,7 @@ import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
 import scala.Tuple2;
+import scala.collection.JavaConverters;
 
 import static org.apache.hudi.common.table.timeline.HoodieTimeline.COMMIT_ACTION;
 import static org.apache.hudi.common.testutils.HoodieTestUtils.INSTANT_GENERATOR;
@@ -229,7 +230,8 @@ public abstract class HoodieSparkClientTestHarness extends HoodieWriterClientTes
     // NOTE: It's important to set Spark's `Tests.IS_TESTING` so that our tests are recognized
     //       as such by Spark
     System.setProperty("spark.testing", "true");
-    sparkSession.sparkContext().persistentRdds().foreach(rdd -> rdd._2.persist());
+    JavaConverters.mapAsJavaMapConverter(sparkSession.sparkContext().persistentRdds()).asJava()
+        .values().forEach(rdd -> rdd.persist());
   }
 
   /**

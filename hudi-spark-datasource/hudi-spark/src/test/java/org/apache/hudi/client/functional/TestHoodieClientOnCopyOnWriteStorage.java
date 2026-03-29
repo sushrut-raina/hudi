@@ -191,20 +191,20 @@ public class TestHoodieClientOnCopyOnWriteStorage extends HoodieClientTestBase {
 
   private static HoodiePreCommitValidatorConfig createPreCommitValidatorConfig(int expectedNumberOfRows) {
     return HoodiePreCommitValidatorConfig.newBuilder()
-            .withPreCommitValidator(SqlQuerySingleResultPreCommitValidator.class.getName())
-            .withPrecommitValidatorSingleResultSqlQueries(COUNT_SQL_QUERY_FOR_VALIDATION + "#" + expectedNumberOfRows)
-            .build();
+        .withPreCommitValidator(SqlQuerySingleResultPreCommitValidator.class.getName())
+        .withPrecommitValidatorSingleResultSqlQueries(COUNT_SQL_QUERY_FOR_VALIDATION + "#" + expectedNumberOfRows)
+        .build();
   }
 
   private static HoodieClusteringConfig.Builder createClusteringBuilder(boolean isInline, int inlineNumCommits) {
     return HoodieClusteringConfig.newBuilder().withClusteringMaxNumGroups(10).withClusteringTargetPartitions(0)
-            .withInlineClustering(isInline).withInlineClusteringNumCommits(inlineNumCommits)
-            .fromProperties(getDisabledRowWriterProperties());
+        .withInlineClustering(isInline).withInlineClusteringNumCommits(inlineNumCommits)
+        .fromProperties(getDisabledRowWriterProperties());
   }
 
   private static HoodieLockConfig createLockConfig(ConflictResolutionStrategy conflictResolutionStrategy) {
     return HoodieLockConfig.newBuilder().withLockProvider(FileSystemBasedLockProviderTestClass.class)
-            .withConflictResolutionStrategy(conflictResolutionStrategy).build();
+        .withConflictResolutionStrategy(conflictResolutionStrategy).build();
   }
 
   private static HoodieCleanConfig createCleanConfig(HoodieFailedWritesCleaningPolicy policy, boolean autoClean) {
@@ -318,6 +318,16 @@ public class TestHoodieClientOnCopyOnWriteStorage extends HoodieClientTestBase {
     return result.getKey();
   }
 
+  private HoodieWriteResult writeWithoutCommit(SparkRDDWriteClient client, String commitTime, List<HoodieRecord> records,
+                                               int parallelism, String action, Function3<HoodieWriteResult, SparkRDDWriteClient, JavaRDD<HoodieRecord>, String> writeFn) throws IOException {
+    WriteClientTestUtils.startCommitWithTime(client, commitTime, action);
+    JavaRDD<HoodieRecord> writeRecords = jsc.parallelize(records, parallelism);
+    HoodieWriteResult writeResult = writeFn.apply(client, writeRecords, commitTime);
+    assertEquals(commitTime, metaClient.reloadActiveTimeline()
+        .filterInflightsAndRequested().lastInstant().get().requestedTime());
+    return writeResult;
+  }
+
   private SparkRDDWriteClient<?> createOccClusteringClient(HoodieCleanConfig cleanConfig, ConflictResolutionStrategy strategy,
                                                            Properties properties, int expectedNumberOfRows) {
     return getHoodieWriteClient(createOccClusteringWriteConfig(HoodieFailedWritesCleaningPolicy.LAZY, cleanConfig,
@@ -342,7 +352,7 @@ public class TestHoodieClientOnCopyOnWriteStorage extends HoodieClientTestBase {
   }
 
   private final Function<HoodieWriteMetadata, HoodieWriteMetadata<List<WriteStatus>>> clusteringMetadataRdd2List =
-      metadata -> metadata.clone(((JavaRDD)(metadata.getWriteStatuses())).collect());
+      metadata -> metadata.clone(((JavaRDD) (metadata.getWriteStatuses())).collect());
 
   private final Function<HoodieWriteConfig, KeyGenerator> createKeyGenerator =
       config -> HoodieSparkKeyGeneratorFactory.createKeyGenerator(config.getProps());
@@ -402,8 +412,8 @@ public class TestHoodieClientOnCopyOnWriteStorage extends HoodieClientTestBase {
   }
 
   private HoodieTestWriteResult insertBatch(HoodieWriteConfig config, SparkRDDWriteClient client, String newCommitTime, String prevCommitTime,
-                                                                     int numRecords, int expectedTotalRecords, int numSlices, int expectedStatusSize,
-                                                                     Function3<Object, BaseHoodieWriteClient, Object, String> writeFn) throws Exception {
+                                            int numRecords, int expectedTotalRecords, int numSlices, int expectedStatusSize,
+                                            Function3<Object, BaseHoodieWriteClient, Object, String> writeFn) throws Exception {
     return insertBatch(config, client, newCommitTime, prevCommitTime, numRecords, expectedTotalRecords, numSlices,
         expectedStatusSize, writeFn, true, false);
   }
@@ -412,10 +422,8 @@ public class TestHoodieClientOnCopyOnWriteStorage extends HoodieClientTestBase {
                                             int numRecords, int expectedTotalRecords, int numSlices, int expectedStatusSize,
                                             int expectedTotalCommits, Function3<Object, BaseHoodieWriteClient, Object, String> writeFn,
                                             boolean assertForCommit, boolean skipCommit) throws Exception {
-    Pair<JavaRDD<WriteStatus>, List<HoodieRecord>> insertStatus = insertBatch(config, client, newCommitTime, prevCommitTime, numRecords,
-        (writeClient, records, commitTime) -> (JavaRDD<WriteStatus>) writeFn.apply(writeClient, records, commitTime), false, assertForCommit, numRecords,
-        expectedTotalRecords, expectedTotalCommits, Option.empty(), INSTANT_GENERATOR, skipCommit, numSlices);
-    assertEquals(expectedStatusSize, insertStatus.getKey().count(), "expected status size didn't match. ");
+    Pair<JavaRDD<WriteStatus>, List<HoodieRecord>> insertStatus = insertBatchWithExpectedStatusSize(config, client, newCommitTime, prevCommitTime,
+        numRecords, expectedTotalRecords, numSlices, expectedStatusSize, expectedTotalCommits, writeFn, assertForCommit, skipCommit);
     return new HoodieTestWriteResult(insertStatus.getKey().collect(), insertStatus.getRight());
   }
 
@@ -457,9 +465,9 @@ public class TestHoodieClientOnCopyOnWriteStorage extends HoodieClientTestBase {
 
 
   private HoodieTestWriteResult insertBatch(String partition, FileFormatUtils fileUtils, HoodieWriteConfig config, SparkRDDWriteClient client,
-                                                                                     String prevCommitTime, String newCommitTime, int numRecords,
-                                                                                     int expectedStatusSize, int numSlices, boolean assertPartitionMetadata,
-                                                                                     Function3<Object, BaseHoodieWriteClient, Object, String> writeFn
+                                            String prevCommitTime, String newCommitTime, int numRecords,
+                                            int expectedStatusSize, int numSlices, boolean assertPartitionMetadata,
+                                            Function3<Object, BaseHoodieWriteClient, Object, String> writeFn
   ) throws Exception {
     return insertBatch(partition, fileUtils, config, client, prevCommitTime, newCommitTime, numRecords, numRecords,
         expectedStatusSize, numSlices, assertPartitionMetadata, writeFn, true, false);
@@ -607,7 +615,7 @@ public class TestHoodieClientOnCopyOnWriteStorage extends HoodieClientTestBase {
   @ParameterizedTest
   @MethodSource("populateMetaFieldsParams")
   public void testDeduplicationOnInsert(boolean populateMetaFields) throws Exception {
-    testDeduplication((client, records, commitTime) -> (List<WriteStatus>) rdd2List.apply((JavaRDD<WriteStatus>)client.insert(list2Rdd.apply(records), commitTime)), populateMetaFields, false);
+    testDeduplication((client, records, commitTime) -> (List<WriteStatus>) rdd2List.apply((JavaRDD<WriteStatus>) client.insert(list2Rdd.apply(records), commitTime)), populateMetaFields, false);
   }
 
   /**
@@ -616,7 +624,7 @@ public class TestHoodieClientOnCopyOnWriteStorage extends HoodieClientTestBase {
   @ParameterizedTest
   @MethodSource("populateMetaFieldsParams")
   public void testDeduplicationKeepOperationFieldOnInsert(boolean populateMetaFields) throws Exception {
-    testDeduplication((client, records, commitTime) -> (List<WriteStatus>) rdd2List.apply((JavaRDD<WriteStatus>)client.insert(list2Rdd.apply(records), commitTime)), populateMetaFields, true);
+    testDeduplication((client, records, commitTime) -> (List<WriteStatus>) rdd2List.apply((JavaRDD<WriteStatus>) client.insert(list2Rdd.apply(records), commitTime)), populateMetaFields, true);
   }
 
   /**
@@ -625,7 +633,7 @@ public class TestHoodieClientOnCopyOnWriteStorage extends HoodieClientTestBase {
   @ParameterizedTest
   @MethodSource("populateMetaFieldsParams")
   public void testDeduplicationOnBulkInsert(boolean populateMetaFields) throws Exception {
-    testDeduplication((client, records, commitTime) -> (List<WriteStatus>) rdd2List.apply((JavaRDD<WriteStatus>)client.bulkInsert(list2Rdd.apply(records), commitTime)), populateMetaFields, false);
+    testDeduplication((client, records, commitTime) -> (List<WriteStatus>) rdd2List.apply((JavaRDD<WriteStatus>) client.bulkInsert(list2Rdd.apply(records), commitTime)), populateMetaFields, false);
   }
 
   /**
@@ -633,7 +641,7 @@ public class TestHoodieClientOnCopyOnWriteStorage extends HoodieClientTestBase {
    */
   @Test
   public void testDeduplicationOnUpsert() throws Exception {
-    testDeduplication((client, records, commitTime) -> (List<WriteStatus>) rdd2List.apply((JavaRDD<WriteStatus>)client.upsert(list2Rdd.apply(records), commitTime)), true, false);
+    testDeduplication((client, records, commitTime) -> (List<WriteStatus>) rdd2List.apply((JavaRDD<WriteStatus>) client.upsert(list2Rdd.apply(records), commitTime)), true, false);
   }
 
   /**
@@ -962,7 +970,7 @@ public class TestHoodieClientOnCopyOnWriteStorage extends HoodieClientTestBase {
     String newFile = insertResult2.getStatuses().get(0).getStat().getPath();
     assertFileExpansion(commitTime1, insertResult1.getStatuses().get(0).getFileId(), insertResult2.getStatuses());
     keys1.addAll(insertResult2.getRecordKeys());
-    assertRecordCommits(storage, List.of(commitTime1,commitTime2), fileUtils, basePath, newFile, keys1);
+    assertRecordCommits(storage, List.of(commitTime1, commitTime2), fileUtils, basePath, newFile, keys1);
 
     // Lots of inserts such that file1 is updated and expanded, a new file2 is created.
     String commitTime3 = "003";
@@ -1005,7 +1013,7 @@ public class TestHoodieClientOnCopyOnWriteStorage extends HoodieClientTestBase {
     keysSoFar.addAll(updateBatch2.getRecordKeys());
 
     // Delete 10 records among 40 updated
-    testDeletes(client, updateBatch2.getRecords(), 10, file1, "003","004", 110, keysSoFar);
+    testDeletes(client, updateBatch2.getRecords(), 10, file1, "003", "004", 110, keysSoFar);
 
     // do another batch of updates
     HoodieTestWriteResult updateBatch3 = testUpdates("005", client, 40, 150, Option.empty());
@@ -1014,7 +1022,7 @@ public class TestHoodieClientOnCopyOnWriteStorage extends HoodieClientTestBase {
     // delete non existent keys
     String commitTime6 = "006";
     List<HoodieRecord> insertResult6 = dataGen.generateInserts(commitTime6, 20);
-    generateKeysAndCommitDelete( client,  commitTime6, insertResult6,20, 0);
+    generateKeysAndCommitDelete(client, commitTime6, insertResult6, 20, 0);
     assertTheEntireDatasetHasAllRecordsStill(150);
 
     // delete another batch. previous delete commit should have persisted the schema. If not,
@@ -1027,7 +1035,7 @@ public class TestHoodieClientOnCopyOnWriteStorage extends HoodieClientTestBase {
   public void testSimpleClustering(boolean populateMetaFields) throws Exception {
     initMetaClient(getPropertiesForKeyGen(populateMetaFields));
     testInsertAndClustering(createClusteringBuilder(true, 1).build(), populateMetaFields, true,
-            false, SqlQueryEqualityPreCommitValidator.class.getName(), COUNT_SQL_QUERY_FOR_VALIDATION, "");
+        false, SqlQueryEqualityPreCommitValidator.class.getName(), COUNT_SQL_QUERY_FOR_VALIDATION, "");
   }
 
   @Test
@@ -1047,20 +1055,20 @@ public class TestHoodieClientOnCopyOnWriteStorage extends HoodieClientTestBase {
   public void testRollbackOfRegularCommitWithPendingReplaceCommitInTimeline() throws Exception {
     // trigger clustering, but do not complete
     testInsertAndClustering(createClusteringBuilder(true, 1).build(), true, false,
-            false, SqlQueryEqualityPreCommitValidator.class.getName(), COUNT_SQL_QUERY_FOR_VALIDATION, "");
+        false, SqlQueryEqualityPreCommitValidator.class.getName(), COUNT_SQL_QUERY_FOR_VALIDATION, "");
 
     // trigger another partial commit, followed by valid commit. rollback of partial commit should succeed.
     HoodieWriteConfig.Builder cfgBuilder = getConfigBuilder();
     SparkRDDWriteClient client = getHoodieWriteClient(cfgBuilder.build());
     String commitTime1 = WriteClientTestUtils.createNewInstantTime();
-    insertBatch(cfgBuilder.build(), client, commitTime1, "000",200, 200, 2, 1,
+    insertBatch(cfgBuilder.build(), client, commitTime1, "000", 200, 200, 2, 1,
         BaseHoodieWriteClient::upsert, false, true);
 
     HoodieTableMetaClient metaClient = createMetaClient();
     assertEquals(2, metaClient.getActiveTimeline().getCommitsTimeline().filterInflightsAndRequested().countInstants());
 
     // trigger another commit. this should rollback latest partial commit.
-    insertBatch(cfgBuilder.build(),client, commitTime1,  "000", 200, 200, 2, 1,
+    insertBatch(cfgBuilder.build(), client, commitTime1, "000", 200, 200, 2, 1,
         BaseHoodieWriteClient::upsert, false, false);
     metaClient.reloadActiveTimeline();
     // rollback should have succeeded. Essentially, the pending clustering should not hinder the rollback of regular commits.
@@ -1071,7 +1079,7 @@ public class TestHoodieClientOnCopyOnWriteStorage extends HoodieClientTestBase {
   @ValueSource(booleans = {true, false})
   public void testInlineScheduleClustering(boolean scheduleInlineClustering) throws IOException {
     HoodieClusteringConfig clusteringConfig = createClusteringBuilder(false, 1)
-            .withAsyncClusteringMaxCommits(1).withScheduleInlineClustering(scheduleInlineClustering).build();
+        .withAsyncClusteringMaxCommits(1).withScheduleInlineClustering(scheduleInlineClustering).build();
     testInlineScheduleClustering(createBrokenClusteringClient(new HoodieException(CLUSTERING_FAILURE)), clusteringConfig, list2Rdd, rdd2List);
   }
 
@@ -1200,7 +1208,7 @@ public class TestHoodieClientOnCopyOnWriteStorage extends HoodieClientTestBase {
             .build();
     SparkRDDWriteClient client = getHoodieWriteClient(writeConfig);
     HoodieTestDataGenerator dataGen =
-        new HoodieTestDataGenerator(new String[]{DEFAULT_FIRST_PARTITION_PATH});
+        new HoodieTestDataGenerator(new String[] {DEFAULT_FIRST_PARTITION_PATH});
     String firstCommit = client.startCommit();
     List<HoodieRecord> firstBatch = dataGen.generateInsertsAsPerSchema(firstCommit, 10, schemaStr);
     JavaRDD<HoodieRecord> records = context.getJavaSparkContext().parallelize(firstBatch, 1);
@@ -1259,7 +1267,7 @@ public class TestHoodieClientOnCopyOnWriteStorage extends HoodieClientTestBase {
       boolean populateMetaFields = false;
       initMetaClient(getPropertiesForKeyGen(populateMetaFields));
       testInsertAndClustering(createClusteringBuilder(true, 1).build(), populateMetaFields, true,
-              false, SqlQueryEqualityPreCommitValidator.class.getName(), "", "");
+          false, SqlQueryEqualityPreCommitValidator.class.getName(), "", "");
       fail("expected pre-commit clustering validation to fail because sql query is not configured");
     } catch (HoodieValidationException e) {
       // expected
@@ -1271,7 +1279,7 @@ public class TestHoodieClientOnCopyOnWriteStorage extends HoodieClientTestBase {
     boolean populateMetaFields = false;
     initMetaClient(getPropertiesForKeyGen(populateMetaFields));
     testInsertAndClustering(createClusteringBuilder(true, 1).build(), populateMetaFields, true,
-            false, SqlQuerySingleResultPreCommitValidator.class.getName(),
+        false, SqlQuerySingleResultPreCommitValidator.class.getName(),
         "", COUNT_SQL_QUERY_FOR_VALIDATION + "#400");
   }
 
@@ -1281,7 +1289,7 @@ public class TestHoodieClientOnCopyOnWriteStorage extends HoodieClientTestBase {
       boolean populateMetaFields = false;
       initMetaClient(getPropertiesForKeyGen(populateMetaFields));
       testInsertAndClustering(createClusteringBuilder(true, 1).build(), populateMetaFields,
-              true, false, SqlQuerySingleResultPreCommitValidator.class.getName(),
+          true, false, SqlQuerySingleResultPreCommitValidator.class.getName(),
           "", COUNT_SQL_QUERY_FOR_VALIDATION + "#802");
       fail("expected pre-commit clustering validation to fail because of count mismatch. expect 400 rows, not 802");
     } catch (HoodieValidationException e) {
@@ -1299,7 +1307,7 @@ public class TestHoodieClientOnCopyOnWriteStorage extends HoodieClientTestBase {
     Pair<Pair<List<HoodieRecord>, List<String>>, Set<HoodieFileGroupId>> allRecords = testInsertTwoBatches(
         populateMetaFields, createBrokenClusteringClient(new HoodieException(CLUSTERING_FAILURE)));
     testClustering(clusteringConfig, populateMetaFields, completeClustering, assertSameFileIds, validatorClasses, sqlQueryForEqualityValidation,
-            sqlQueryForSingleResultValidation, allRecords, clusteringMetadataRdd2List, createKeyGenerator);
+        sqlQueryForSingleResultValidation, allRecords, clusteringMetadataRdd2List, createKeyGenerator);
     return allRecords.getLeft().getLeft();
   }
 
@@ -1367,11 +1375,8 @@ public class TestHoodieClientOnCopyOnWriteStorage extends HoodieClientTestBase {
 
     // Do Insert Overwrite
     String commitTime2 = "002";
-    WriteClientTestUtils.startCommitWithTime(writeClient, commitTime2, REPLACE_COMMIT_ACTION);
     List<HoodieRecord> inserts2 = dataGen.generateInserts(commitTime2, batch2RecordsCount);
-    List<HoodieRecord> insertsAndUpdates2 = new ArrayList<>(inserts2);
-    JavaRDD<HoodieRecord> insertAndUpdatesRDD2 = jsc.parallelize(insertsAndUpdates2, 2);
-    HoodieWriteResult writeResult = client.insertOverwrite(insertAndUpdatesRDD2, commitTime2);
+    HoodieWriteResult writeResult = writeWithoutCommit(client, commitTime2, inserts2, 2, REPLACE_COMMIT_ACTION, SparkRDDWriteClient::insertOverwrite);
     List<WriteStatus> statusList = jsc.parallelize(writeResult.getWriteStatuses().collect(), 2).collect();
     client.commit(commitTime2, jsc.parallelize(statusList), Option.empty(), REPLACE_COMMIT_ACTION, Collections.emptyMap(), Option.empty());
     assertNoWriteErrors(statusList);
@@ -1496,8 +1501,8 @@ public class TestHoodieClientOnCopyOnWriteStorage extends HoodieClientTestBase {
   }
 
   private HoodieTestWriteResult testUpdates(String newCommitTime, SparkRDDWriteClient client,
-                                                                  int sizeToInsertAndUpdate, int expectedRecords,
-                                                                  Option<List<HoodieRecord>> previousRecordBatch)
+                                            int sizeToInsertAndUpdate, int expectedRecords,
+                                            Option<List<HoodieRecord>> previousRecordBatch)
       throws IOException {
     WriteClientTestUtils.startCommitWithTime(client, newCommitTime);
     List<HoodieRecord> inserts = dataGen.generateInserts(newCommitTime, sizeToInsertAndUpdate);
@@ -1564,7 +1569,7 @@ public class TestHoodieClientOnCopyOnWriteStorage extends HoodieClientTestBase {
   private void testRollbackAfterConsistencyCheckFailureUsingFileList(boolean rollbackUsingMarkers, boolean enableOptimisticConsistencyGuard,
                                                                      boolean populateMetaFields) throws Exception {
     testRollbackAfterConsistencyCheckFailureUsingFileList(context, rollbackUsingMarkers, enableOptimisticConsistencyGuard,
-            populateMetaFields, getHoodieTable, list2Rdd, rdd2List);
+        populateMetaFields, getHoodieTable, list2Rdd, rdd2List);
   }
 
   @ParameterizedTest
@@ -1684,32 +1689,17 @@ public class TestHoodieClientOnCopyOnWriteStorage extends HoodieClientTestBase {
     HoodieWriteConfig insertWriteConfig = createOccWriteConfig(lockConfig, properties);
     SparkRDDWriteClient client = getHoodieWriteClient(insertWriteConfig);
     // Create base commit.
-    String firstCommit = WriteClientTestUtils.createNewInstantTime();
-    insertFirstBatch(insertWriteConfig, client, firstCommit, "000", 10,
-        SparkRDDWriteClient::insert, false, false, 10,
-        insertWriteConfig.populateMetaFields(), INSTANT_GENERATOR, false);
-    assertEquals(firstCommit, metaClient.reloadActiveTimeline()
-            .filterCompletedInstants().lastInstant().get().requestedTime());
+    createBaseCommit(client, dataGen, 10);
 
     // Do insert-overwrite operation on the existing partitions, without committing the data.
     String secondCommit = WriteClientTestUtils.createNewInstantTime();
-    WriteClientTestUtils.startCommitWithTime(client, secondCommit, REPLACE_COMMIT_ACTION);
-    List<HoodieRecord> records1 = dataGen.generateInserts(secondCommit, 10);
-    JavaRDD<HoodieRecord> writeRecords1 = jsc.parallelize(records1, 1);
-    HoodieWriteResult result1 = client.insertOverwrite(writeRecords1, secondCommit);
-    assertEquals(secondCommit, metaClient.reloadActiveTimeline()
-        .filterInflightsAndRequested().lastInstant().get().requestedTime());
+    HoodieWriteResult result1 = writeWithoutCommit(client, secondCommit, dataGen.generateInserts(secondCommit, 10), 1, REPLACE_COMMIT_ACTION, SparkRDDWriteClient::insertOverwrite);
 
     // Create second writer and do another insert-overwrite operation on the existing partitions,
     // without committing the data.
     SparkRDDWriteClient client2 = new SparkRDDWriteClient(context, insertWriteConfig);
     String thirdCommit = WriteClientTestUtils.createNewInstantTime();
-    WriteClientTestUtils.startCommitWithTime(client2, thirdCommit, REPLACE_COMMIT_ACTION);
-    List<HoodieRecord> records2 = dataGen.generateInserts(thirdCommit, 10);
-    JavaRDD<HoodieRecord> writeRecords2 = jsc.parallelize(records2, 1);
-    HoodieWriteResult result2 = client2.insertOverwrite(writeRecords2, thirdCommit);
-    assertEquals(thirdCommit, metaClient.reloadActiveTimeline()
-        .filterInflightsAndRequested().lastInstant().get().requestedTime());
+    HoodieWriteResult result2 = writeWithoutCommit(client2, thirdCommit, dataGen.generateInserts(thirdCommit, 10), 1, REPLACE_COMMIT_ACTION, SparkRDDWriteClient::insertOverwrite);
 
     // Complete first insert-overwrite operation.
     client.commit(secondCommit, result1.getWriteStatuses(),
@@ -1744,14 +1734,14 @@ public class TestHoodieClientOnCopyOnWriteStorage extends HoodieClientTestBase {
         SparkRDDWriteClient::insert, false, false, 10,
         insertWriteConfig.populateMetaFields(), INSTANT_GENERATOR, false);
     assertEquals(firstCommit, metaClient.reloadActiveTimeline()
-            .filterCompletedInstants().lastInstant().get().requestedTime());
+        .filterCompletedInstants().lastInstant().get().requestedTime());
 
     // Create clustering writer
     SparkRDDWriteClient clusteringClient = getHoodieWriteClient(insertWriteConfig);
     Option<String> clusteringInstant = clusteringClient.scheduleClustering(Option.empty());
     assertTrue(clusteringInstant.isPresent());
     assertEquals(clusteringInstant.get(), metaClient.reloadActiveTimeline()
-            .filterPendingReplaceOrClusteringTimeline().lastInstant().get().requestedTime());
+        .filterPendingReplaceOrClusteringTimeline().lastInstant().get().requestedTime());
 
     String secondInstant = WriteClientTestUtils.createNewInstantTime();
     if (strategy instanceof PreferWriterConflictResolutionStrategy) {
@@ -1842,6 +1832,7 @@ public class TestHoodieClientOnCopyOnWriteStorage extends HoodieClientTestBase {
    * Disabling row writer here as clustering tests will throw the error below if it is used.
    * java.util.concurrent.CompletionException: java.lang.ClassNotFoundException
    * TODO: Fix this and increase test coverage to include clustering via row writers
+   *
    * @return
    */
   private static Properties getDisabledRowWriterProperties() {

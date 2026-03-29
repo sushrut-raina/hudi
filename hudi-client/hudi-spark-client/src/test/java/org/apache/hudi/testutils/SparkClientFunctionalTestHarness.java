@@ -88,6 +88,8 @@ import java.util.Map;
 import java.util.Properties;
 import java.util.Set;
 import java.util.stream.Collectors;
+
+import scala.collection.JavaConverters;
 import java.util.stream.Stream;
 
 import static org.apache.hudi.common.model.HoodieTableType.COPY_ON_WRITE;
@@ -236,7 +238,8 @@ public class SparkClientFunctionalTestHarness implements SparkProvider, HoodieMe
           context, basePath(), incrementTimelineServicePortToUse());
       timelineServicePort = timelineService.getServerPort();
     }
-    spark.sparkContext().persistentRdds().foreach(rdd -> rdd._2.unpersist(false));
+    JavaConverters.mapAsJavaMapConverter(spark.sparkContext().persistentRdds()).asJava()
+        .values().forEach(rdd -> rdd.unpersist(false));
   }
 
   /**
